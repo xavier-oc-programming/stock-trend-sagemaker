@@ -6,9 +6,13 @@ is versioned in SageMaker Model Registry, and inference is served via a
 SageMaker Real-Time Endpoint. A Flask frontend on Azure App Service calls
 the endpoint — a multi-cloud architecture mirroring enterprise deployments.
 
-The model architecture (stacked LSTM) is intentionally identical to
-[stock-trend-lstm](https://github.com/xavier-oc-programming/stock-trend-lstm).
-The value added here is the infrastructure.
+The model is a stacked LSTM that learns temporal patterns in financial
+time series data. It reads 60 trading days of technical indicators —
+moving averages, RSI, MACD, Bollinger Bands — and classifies whether
+the next 5 trading days are likely to trend up or down. The MLOps
+infrastructure — SageMaker Training Job, Model Registry, and Real-Time
+Endpoint — is what makes it a production system rather than a notebook
+experiment. Both are documented here.
 
 > Pattern detection only — not financial advice. Past patterns do not
 > guarantee future results.
@@ -16,8 +20,6 @@ The value added here is the infrastructure.
 **Live demo → [Azure App Service](https://stock-trend-sagemaker.azurewebsites.net)**
 &nbsp;&nbsp;·&nbsp;&nbsp;
 **Notebook → notebook.ipynb**
-&nbsp;&nbsp;·&nbsp;&nbsp;
-**Related project → [stock-trend-lstm](https://github.com/xavier-oc-programming/stock-trend-lstm)**
 
 ![Python 3.11](https://img.shields.io/badge/Python-3.11-blue)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15-orange)
@@ -86,7 +88,7 @@ python app.py
 ```
 stock-trend-sagemaker/
 ├── config.py                    # Single source of truth — all constants
-├── sequence_builder.py          # Feature engineering — identical to stock-trend-lstm
+├── sequence_builder.py          # Feature engineering and sequence construction (25 features, 60-day windows)
 ├── prepare_data.py              # Data download, EDA plots, S3 upload
 ├── run_training_job.py          # Launch SageMaker Training Job
 ├── register_model.py            # Register model in SageMaker Model Registry
@@ -203,28 +205,84 @@ python delete_endpoint.py
 
 ## 5. Model Architecture
 
-Stacked LSTM — identical to stock-trend-lstm.
+### Why LSTM for this problem
 
-| Layer | Config |
-|---|---|
-| LSTM 1 | 64 units, return_sequences=True |
-| BatchNorm + Dropout | 0.2 |
-| LSTM 2 | 32 units |
-| BatchNorm + Dropout | 0.2 |
-| Dense | 16 units, ReLU |
-| Dropout | 0.1 |
-| Output | 1 unit, Sigmoid |
+Stock price data is a sequence — the order of observations matters.
+A feedforward network treats each day independently; an LSTM maintains
+a hidden state across the sequence, allowing it to learn that "three
+consecutive days of rising RSI after a low Bollinger Band touch" is a
+different pattern from "three isolated high-RSI days." This temporal
+memory is the core advantage of LSTM over simpler architectures for
+time series classification.
 
-**Input**: `(batch, 60, 25)` — 60-day sequences, 25 features  
-**Output**: probability of uptrend over the next 5 trading days  
+A Transformer would also capture sequence dependencies, but requires
+substantially more data and compute to train effectively. With ~3,750
+sequences across three tickers, a stacked LSTM is the right size for
+this dataset.
+
+### Why binary classification, not regression
+
+Predicting the exact price 5 days ahead is not reliably achievable —
+the signal-to-noise ratio in financial data is too low. Predicting
+whether the price will be higher or lower is a more tractable problem.
+It also maps directly to a business decision: act or don't act. The
+classification threshold can be tuned based on the cost of false
+positives vs false negatives in a deployment context.
+
+### Why 60-day sequences
+
+60 trading days is approximately one quarter. This window captures:
+- Short-term momentum (RSI, MACD signals over days to weeks)
+- Medium-term trend (50-day SMA crossovers)
+- Quarterly cycle patterns in institutional trading behaviour
+
+Shorter windows (5–10 days) capture noise. Longer windows (120+ days)
+introduce older data that may reflect market regimes no longer relevant.
+
+### Why these 25 features
+
+Raw OHLCV prices are non-stationary — AAPL at $150 in 2021 and $180
+in 2023 are the same stock in different price regimes. A model trained
+on raw prices cannot generalise across price levels. Technical indicators
+normalise price behaviour into signals that are comparable across
+different stocks and time periods:
+
+| Feature group | Features | What they capture |
+|---|---|---|
+| Price | Close, Open, High, Low | Raw price context |
+| Volume | Volume, Volume_SMA_20, Volume_Ratio | Conviction behind moves |
+| Trend | SMA_20, SMA_50, EMA_12, EMA_26, Price_to_SMA20, Price_to_SMA50 | Trend direction and strength |
+| Momentum | MACD, MACD_Signal, MACD_Hist, RSI | Rate of change |
+| Volatility | BB_Upper, BB_Lower, BB_Width, BB_Position, ATR_14 | Price range and expansion |
+| Returns | Return_1d, Return_5d, Return_20d | Normalised price change |
+
+### Architecture
+
+| Layer | Config | Purpose |
+|---|---|---|
+| LSTM 1 | 64 units, return_sequences=True | Learn local temporal patterns across the sequence |
+| BatchNorm + Dropout | 0.2 | Stabilise training, prevent memorisation |
+| LSTM 2 | 32 units | Learn higher-order patterns from LSTM 1 output |
+| BatchNorm + Dropout | 0.2 | Further regularisation |
+| Dense | 16 units, ReLU | Non-linear combination of LSTM features |
+| Dropout | 0.1 | Final regularisation before output |
+| Output | 1 unit, Sigmoid | Probability of uptrend over next 5 days |
+
+**Input shape**: `(batch, 60, 25)` — 60-day sequences, 25 features  
+**Output**: probability ∈ [0, 1] — above 0.5 = bullish, below 0.5 = bearish  
 **Loss**: Binary cross-entropy  
 **Optimizer**: Adam, lr=0.001  
-**Callbacks**: EarlyStopping (patience=10, monitor=val_auc), ReduceLROnPlateau  
+**Callbacks**: EarlyStopping (patience=10, monitor=val_auc),
+ReduceLROnPlateau (factor=0.5, patience=5)
 
-Features (25): Close, Open, High, Low, Volume, SMA_20, SMA_50, EMA_12, EMA_26,
-MACD, MACD_Signal, MACD_Hist, RSI, BB_Upper, BB_Lower, BB_Width, BB_Position,
-Volume_SMA_20, Volume_Ratio, Return_1d, Return_5d, Return_20d, ATR_14,
-Price_to_SMA20, Price_to_SMA50.
+### Training data
+
+Combined dataset: AAPL + MSFT + GOOGL, 5 years of daily data (~3,750 days).
+Training on multiple tickers prevents the model learning ticker-specific
+behaviour rather than general market patterns.
+Temporal 80/20 split — no shuffling. Shuffling would allow the model to
+train on future data and test on past data, producing artificially high
+performance that does not reflect real-world use.
 
 ---
 
@@ -421,14 +479,14 @@ AWS Lambda has a cold-start latency of 1–10 seconds for a TensorFlow model —
 **Why multi-cloud (Azure frontend + AWS ML backend)**  
 This is a deliberate architectural choice, not a forced constraint. Accenture's enterprise clients frequently run application infrastructure on Azure — Microsoft's platform, with which Accenture has a deep partnership — while running ML workloads on AWS SageMaker, which has the most mature managed ML platform. The two clouds communicate via HTTPS with no VPN or peering required for this traffic pattern. Implementing this architecture demonstrates comfort operating across both clouds simultaneously.
 
-**Why the model architecture is identical to stock-trend-lstm**  
-The point of this project is the infrastructure, not the model. Changing the architecture would make it harder to isolate the infrastructure contribution — any difference in results could be attributed to the architecture rather than the platform. Holding the architecture constant makes the comparison clean: the only variable between the two projects is the MLOps infrastructure.
+**Why LSTM over simpler models for this dataset**  
+A gradient boosting model (XGBoost, LightGBM) treats each day's features independently — it cannot learn that a pattern spanning multiple days is meaningfully different from its individual components. An LSTM's hidden state carries information across the full 60-day window, allowing it to detect multi-day patterns that a tabular model would miss entirely. The trade-off is training complexity and compute cost — justified here because the temporal structure of the data is the core signal.
 
 **Why delete_endpoint.py is a first-class file**  
 Cost management is a first-class concern in production MLOps. An endpoint that bills by the hour and is left running after a demo is a real operational failure. Treating deletion as an afterthought — a one-liner in a notebook or README — understates its importance. A named, documented script makes the delete operation explicit, auditable, and easy to find.
 
-**Why this project is paired with stock-trend-lstm rather than replacing it**  
-The two projects together demonstrate something neither demonstrates alone: the ability to choose the right tool for the context. stock-trend-lstm shows I can build an end-to-end ML system quickly without managed infrastructure. stock-trend-sagemaker shows I can deploy the same system as a production MLOps pipeline. The pairing is the argument — it shows judgment about when to use each approach.
+**Why the MLOps infrastructure is documented as a standalone project**  
+Separating the MLOps pipeline into its own repository makes the infrastructure contribution explicit and independently navigable. A recruiter or interviewer can read this project without needing context from another codebase. Every script — prepare_data.py, run_training_job.py, register_model.py, deploy_endpoint.py, delete_endpoint.py — has a single clear responsibility and can be understood in isolation.
 
 **Why the UI shows the prediction date range and model training date**  
 The app downloads fresh market data on every request but the model is frozen at training time. The UI makes this explicit on every prediction: the date range of the 60-day input sequence and the date the model was trained are both displayed in the temporal summary footer. This distinction matters for financial applications where data recency and model staleness have direct implications for reliability. A model trained six months ago on a bull market may behave differently in a bear market — surfacing that information rather than hiding it is a deliberate transparency choice.

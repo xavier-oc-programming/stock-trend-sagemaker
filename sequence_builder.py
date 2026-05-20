@@ -1,8 +1,11 @@
 # sequence_builder.py
-# Feature engineering and sequence construction — identical to
-# stock-trend-lstm. Separated into a standalone module so it can
-# be used both locally (for data prep) and inside the SageMaker
-# training container (uploaded as a dependency with the training script).
+# Feature engineering and sequence construction for stock trend
+# pattern recognition. Builds 25 technical indicators from raw OHLCV
+# data and constructs overlapping 60-day sequences for LSTM input.
+# Separated into a standalone module so it can be used both locally
+# (data prep and fallback inference in app.py) and inside the SageMaker
+# training container (uploaded as a source dependency with
+# training/train_sagemaker.py).
 
 import numpy as np
 import pandas as pd

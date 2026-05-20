@@ -1,0 +1,12 @@
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+tensorflow>=2.15
+sagemaker>=2.200
+yfinance>=0.2
+flask>=3.0
+gunicorn>=21.0
+matplotlib>=3.7
+seaborn>=0.12
+jupyter>=1.0
+boto3>=1.34

@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Trend — SageMaker MLOps</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --accent: #4f8ef7;
+      --accent2: #a78bfa;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --border: #2d3148;
+      --radius: 10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+    header .subtitle { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+    .badge-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .badge {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    main { max-width: 960px; margin: 0 auto; padding: 24px 16px 60px; }
+
+    /* ── Disclaimer ──────────────────────────────────────────────────────── */
+    .disclaimer {
+      background: #1c1a0f;
+      border: 1px solid #92400e;
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      font-size: 0.78rem;
+      color: #fbbf24;
+      margin-bottom: 20px;
+    }
+
+    /* ── Pipeline status ─────────────────────────────────────────────────── */
+    .pipeline-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+    }
+    .pipeline-panel h2 { font-size: 0.85rem; color: var(--muted); font-weight: 600; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .pipeline-steps {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .pipeline-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 120px;
+    }
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 1rem;
+      font-weight: 700;
+      border: 2px solid var(--border);
+      color: var(--muted);
+      background: var(--surface2);
+      transition: all 0.3s;
+    }
+    .step-indicator.active { border-color: var(--green); color: var(--green); background: #0f2a1a; }
+    .step-label { font-size: 0.72rem; color: var(--muted); text-align: center; }
+    .step-label.active { color: var(--green); }
+    .pipeline-arrow {
+      color: var(--border);
+      font-size: 1.2rem;
+      padding: 0 4px;
+      padding-bottom: 20px;
+    }
+
+    /* ── Card ────────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 14px; }
+
+    /* ── Input form ──────────────────────────────────────────────────────── */
+    .input-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    input[type="text"], select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 9px 14px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus, select:focus { border-color: var(--accent); }
+    input[type="text"] { width: 160px; }
+
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 22px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Results grid ────────────────────────────────────────────────────── */
+    .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 600px) { .results-grid { grid-template-columns: 1fr; } }
+
+    .result-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .result-box h3 { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+
+    .prediction-badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+    .bullish { background: #0f2a1a; border: 1.5px solid var(--green); color: var(--green); }
+    .bearish { background: #2a0f0f; border: 1.5px solid var(--red); color: var(--red); }
+    .neutral { background: var(--surface2); border: 1.5px solid var(--border); color: var(--muted); }
+
+    .stat-row { display: flex; justify-content: space-between; font-size: 0.82rem; margin-top: 6px; }
+    .stat-label { color: var(--muted); }
+    .stat-value { font-weight: 600; }
+
+    .agreement-banner {
+      text-align: center;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .agree { background: #0f2a1a; color: var(--green); border: 1px solid var(--green); }
+    .disagree { background: #2a1a0f; color: var(--yellow); border: 1px solid var(--yellow); }
+
+    /* ── Inference source tag ────────────────────────────────────────────── */
+    .inference-source {
+      background: #0d1b2e;
+      border: 1px solid #1e3a5f;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      color: var(--accent);
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .inference-source::before { content: "⚡"; }
+
+    /* ── Chart ───────────────────────────────────────────────────────────── */
+    .chart-wrap { position: relative; height: 220px; margin-top: 12px; }
+
+    /* ── Error / loading ─────────────────────────────────────────────────── */
+    .error-box {
+      background: #2a0f0f;
+      border: 1px solid var(--red);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      color: var(--red);
+      font-size: 0.85rem;
+      display: none;
+    }
+    .spinner {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .spinner.visible { display: flex; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin-icon {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* ── Model info footer ───────────────────────────────────────────────── */
+    .model-footer {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .mf-item { font-size: 0.78rem; }
+    .mf-label { color: var(--muted); }
+    .mf-value { font-weight: 600; color: var(--text); }
+
+    #results-section { display: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Stock Trend Pattern Recognition</h1>
+    <div class="subtitle">Amazon SageMaker MLOps · Azure App Service frontend · Pattern detection only</div>
+  </div>
+  <div class="badge-row">
+    <span class="badge">SageMaker</span>
+    <span class="badge">LSTM</span>
+    <span class="badge">Flask</span>
+    <span class="badge">Azure</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Disclaimer -->
+  <div class="disclaimer">
+    ⚠️ Pattern detection only — not financial advice. Past patterns do not guarantee future results.
+  </div>
+
+  <!-- MLOps Pipeline Status -->
+  <div class="pipeline-panel">
+    <h2>MLOps Pipeline Status</h2>
+    <div class="pipeline-steps" id="pipeline-steps">
+      <div class="pipeline-step">
+        <div class="step-indicator" id="step-data">…</div>
+        <div class="step-label" id="step-data-label">Data</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">
+        <div class="step-indicator" id="step-training">…</div>
+        <div class="step-label" id="step-training-label">Training Job</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">
+        <div class="step-indicator" id="step-registry">…</div>
+        <div class="step-label" id="step-registry-label">Model Registry</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-step">
+        <div class="step-indicator" id="step-endpoint">…</div>
+        <div class="step-label" id="step-endpoint-label">Endpoint</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="card">
+    <h2>Run Prediction</h2>
+    <div class="input-row">
+      <input type="text" id="ticker-input" placeholder="Ticker (e.g. AAPL)" value="AAPL" />
+      <select id="period-select">
+        <option value="1y">1 year</option>
+        <option value="2y">2 years</option>
+        <option value="5y">5 years</option>
+      </select>
+      <button id="predict-btn" onclick="runPrediction()">Predict</button>
+    </div>
+    <div class="spinner" id="spinner" style="margin-top:12px;">
+      <div class="spin-icon"></div>
+      Calling SageMaker endpoint…
+    </div>
+    <div class="error-box" id="error-box"></div>
+  </div>
+
+  <!-- Results -->
+  <div id="results-section">
+    <div class="results-grid">
+
+      <!-- LSTM result -->
+      <div class="result-box">
+        <h3>LSTM — SageMaker Endpoint</h3>
+        <div class="prediction-badge" id="lstm-badge">—</div>
+        <div class="stat-row">
+          <span class="stat-label">Probability</span>
+          <span class="stat-value" id="lstm-prob">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Confidence</span>
+          <span class="stat-value" id="lstm-conf">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Sequence length</span>
+          <span class="stat-value" id="lstm-seq">60 days</span>
+        </div>
+        <div class="inference-source" id="inference-source">Amazon SageMaker Real-Time Endpoint (ml.t2.medium, us-east-1)</div>
+      </div>
+
+      <!-- MA crossover -->
+      <div class="result-box">
+        <h3>MA Crossover Signal</h3>
+        <div class="prediction-badge" id="ma-badge">—</div>
+        <div class="stat-row">
+          <span class="stat-label">Signal</span>
+          <span class="stat-value" id="ma-signal">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">SMA 20</span>
+          <span class="stat-value" id="ma-sma20">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">SMA 50</span>
+          <span class="stat-value" id="ma-sma50">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Agreement -->
+    <div class="agreement-banner" id="agreement-banner">—</div>
+
+    <!-- Price chart -->
+    <div class="card" style="margin-top:14px;">
+      <h2>Recent Price — <span id="chart-ticker">—</span> <span id="chart-date" style="font-size:0.8rem;color:var(--muted);font-weight:400;"></span></h2>
+      <div class="chart-wrap">
+        <canvas id="price-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Model info footer -->
+    <div class="card" style="margin-top:0;">
+      <h2>Model Info</h2>
+      <div class="model-footer" id="model-footer">
+        <div class="mf-item"><div class="mf-label">Served by</div><div class="mf-value">Amazon SageMaker Real-Time Endpoint</div></div>
+        <div class="mf-item"><div class="mf-label">Instance</div><div class="mf-value">ml.t2.medium</div></div>
+        <div class="mf-item"><div class="mf-label">Region</div><div class="mf-value">us-east-1</div></div>
+        <div class="mf-item"><div class="mf-label">Architecture</div><div class="mf-value">Stacked LSTM</div></div>
+        <div class="mf-item"><div class="mf-label">Disclaimer</div><div class="mf-value" style="color:var(--yellow);">Pattern detection only. Not financial advice.</div></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+let priceChart = null;
+
+// ── Pipeline status on page load ───────────────────────────────────────────
+async function loadPipelineStatus() {
+  try {
+    const res = await fetch('/api/pipeline-status');
+    const d = await res.json();
+
+    setStep('step-data',     'step-data-label',     d.data_prepared,      '✓', 'Data');
+    setStep('step-training', 'step-training-label', !!d.training_job,      '✓', 'Training Job');
+    setStep('step-registry', 'step-registry-label', d.model_registered,   '✓', 'Model Registry');
+    setStep('step-endpoint', 'step-endpoint-label', d.endpoint_active,    '✓', 'Endpoint');
+  } catch {
+    // API unavailable — leave placeholders
+  }
+}
+
+function setStep(indicatorId, labelId, active, symbol, text) {
+  const ind = document.getElementById(indicatorId);
+  const lbl = document.getElementById(labelId);
+  if (active) {
+    ind.textContent = symbol;
+    ind.classList.add('active');
+    lbl.classList.add('active');
+  } else {
+    ind.textContent = '○';
+    lbl.classList.remove('active');
+  }
+  lbl.textContent = text;
+}
+
+// ── Prediction ─────────────────────────────────────────────────────────────
+async function runPrediction() {
+  const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
+  const period = document.getElementById('period-select').value;
+  if (!ticker) return;
+
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('results-section').style.display = 'none';
+  document.getElementById('predict-btn').disabled = true;
+  document.getElementById('spinner').classList.add('visible');
+
+  try {
+    const res = await fetch('/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker, period }),
+    });
+    const d = await res.json();
+
+    if (!res.ok) {
+      showError(d.error || 'Prediction failed.');
+      return;
+    }
+
+    renderResults(d);
+  } catch (err) {
+    showError('Network error. Is the app running?');
+  } finally {
+    document.getElementById('predict-btn').disabled = false;
+    document.getElementById('spinner').classList.remove('visible');
+  }
+}
+
+function renderResults(d) {
+  // LSTM
+  const lstmBadge = document.getElementById('lstm-badge');
+  lstmBadge.textContent = d.lstm.prediction.toUpperCase();
+  lstmBadge.className = 'prediction-badge ' + d.lstm.prediction;
+  document.getElementById('lstm-prob').textContent = (d.lstm.probability * 100).toFixed(1) + '%';
+  document.getElementById('lstm-conf').textContent = d.lstm.confidence;
+  document.getElementById('lstm-seq').textContent = d.sequence_days + ' days';
+  document.getElementById('inference-source').textContent =
+    '⚡ Inference served by: ' + d.lstm.served_by + ' (ml.t2.medium, us-east-1)';
+
+  // MA crossover
+  const maBadge = document.getElementById('ma-badge');
+  maBadge.textContent = d.ma_crossover.prediction.toUpperCase();
+  maBadge.className = 'prediction-badge ' + (d.ma_crossover.prediction === 'bullish' ? 'bullish' : d.ma_crossover.prediction === 'bearish' ? 'bearish' : 'neutral');
+  document.getElementById('ma-signal').textContent = d.ma_crossover.signal;
+  document.getElementById('ma-sma20').textContent = d.ma_crossover.sma20 !== null ? '$' + d.ma_crossover.sma20.toFixed(2) : '—';
+  document.getElementById('ma-sma50').textContent = d.ma_crossover.sma50 !== null ? '$' + d.ma_crossover.sma50.toFixed(2) : '—';
+
+  // Agreement
+  const banner = document.getElementById('agreement-banner');
+  if (d.agreement) {
+    banner.textContent = '✓ Both signals agree: ' + d.lstm.prediction.toUpperCase();
+    banner.className = 'agreement-banner agree';
+  } else {
+    banner.textContent = '⚡ Signals diverge — LSTM: ' + d.lstm.prediction.toUpperCase() + ' · MA: ' + d.ma_crossover.prediction.toUpperCase();
+    banner.className = 'agreement-banner disagree';
+  }
+
+  // Chart header
+  document.getElementById('chart-ticker').textContent = d.ticker;
+  document.getElementById('chart-date').textContent = 'as of ' + d.as_of_date;
+
+  // Price chart
+  if (priceChart) priceChart.destroy();
+  const ctx = document.getElementById('price-chart').getContext('2d');
+  priceChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: d.recent_dates,
+      datasets: [{
+        label: 'Close',
+        data: d.recent_prices,
+        borderColor: '#4f8ef7',
+        backgroundColor: 'rgba(79,142,247,0.08)',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.3,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#94a3b8', maxTicksLimit: 6 }, grid: { color: '#2d3148' } },
+        y: { ticks: { color: '#94a3b8' }, grid: { color: '#2d3148' } },
+      },
+    },
+  });
+
+  document.getElementById('results-section').style.display = 'block';
+}
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = '✕ ' + msg;
+  box.style.display = 'block';
+}
+
+// Load pipeline status immediately
+loadPipelineStatus();
+</script>
+</body>
+</html>

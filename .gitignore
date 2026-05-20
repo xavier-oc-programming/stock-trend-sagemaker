@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+venv/
+.venv/
+.env
+*.egg-info/
+.vscode/
+.azure/
+deploy.zip
+data/
+models/bedrock_results.json
+models/AAPL_raw.csv
+models/MSFT_raw.csv
+models/GOOGL_raw.csv

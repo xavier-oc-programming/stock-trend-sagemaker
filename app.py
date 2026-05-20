@@ -155,7 +155,24 @@ def predict():
     if len(df) < SEQUENCE_LENGTH:
         return jsonify({'error': 'Not enough data after indicator calculation'}), 400
 
-    as_of_date = str(df.index[-1].date())
+    # Actual date range used for this prediction — the last SEQUENCE_LENGTH rows
+    sequence_start_date = df.index[-SEQUENCE_LENGTH].strftime('%d %b %Y')
+    sequence_end_date   = df.index[-1].strftime('%d %b %Y')
+    as_of_date          = df.index[-1].strftime('%Y-%m-%d')
+
+    # Model training date — loaded for transparency in the response
+    trained_at_display = 'Unknown'
+    try:
+        with open(MODEL_DIR / 'training_job_metadata.json') as f:
+            _tj = json.load(f)
+            _raw = _tj.get('completed_at', '')
+            if _raw and _raw != 'TBD':
+                try:
+                    trained_at_display = datetime.fromisoformat(_raw.replace('Z', '')).strftime('%d %b %Y')
+                except Exception:
+                    trained_at_display = _raw
+    except Exception:
+        pass
 
     # ── MA crossover signal (local — no endpoint needed) ──────────────────────
     ma_signal = _ma_crossover_signal(df)
@@ -173,26 +190,36 @@ def predict():
 
     lstm_prediction = 'bullish' if probability >= 0.5 else 'bearish'
     lstm_agreement = lstm_prediction == ma_signal.get('prediction', '')
+    inference_source = 'SageMaker Real-Time Endpoint'
 
     # ── Recent price window for chart ─────────────────────────────────────────
     recent = df.tail(30)
     recent_prices = [round(float(p), 2) for p in recent['Close'].values]
     recent_dates  = [str(d.date()) for d in recent.index]
 
+    temporal_summary = (
+        f"Pattern based on {SEQUENCE_LENGTH} trading days ending {sequence_end_date} "
+        f"· Model trained {trained_at_display} · Live SageMaker endpoint"
+    )
+
     return jsonify({
         'ticker': ticker,
         'as_of_date': as_of_date,
         'sequence_days': SEQUENCE_LENGTH,
+        'sequence_start_date': sequence_start_date,
+        'sequence_end_date': sequence_end_date,
+        'model_trained_at': trained_at_display,
         'lstm': {
             'prediction': lstm_prediction,
             'probability': round(probability, 4),
             'confidence': _confidence_label(probability),
-            'served_by': 'SageMaker Real-Time Endpoint',
+            'served_by': inference_source,
         },
         'ma_crossover': ma_signal,
         'agreement': lstm_agreement,
         'recent_prices': recent_prices,
         'recent_dates': recent_dates,
+        'temporal_summary': temporal_summary,
         'disclaimer': 'Pattern detection only. Not financial advice.',
     })
 
@@ -204,6 +231,26 @@ def model_info():
         info.update(model_metrics)
     if endpoint_metadata:
         info.update(endpoint_metadata)
+
+    # Add training date in both raw and display format
+    try:
+        with open(MODEL_DIR / 'training_job_metadata.json') as f:
+            _tj = json.load(f)
+            _raw = _tj.get('completed_at', '')
+            info['model_trained_at'] = _raw
+            if _raw and _raw != 'TBD':
+                try:
+                    info['model_trained_at_display'] = datetime.fromisoformat(
+                        _raw.replace('Z', '')
+                    ).strftime('%d %b %Y')
+                except Exception:
+                    info['model_trained_at_display'] = _raw
+            else:
+                info['model_trained_at_display'] = 'Unknown'
+    except Exception:
+        info['model_trained_at'] = None
+        info['model_trained_at_display'] = 'Unknown'
+
     return jsonify(info)
 
 

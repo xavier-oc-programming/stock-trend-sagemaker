@@ -275,6 +275,9 @@ Price_to_SMA20, Price_to_SMA50.
   "ticker": "AAPL",
   "as_of_date": "2026-05-20",
   "sequence_days": 60,
+  "sequence_start_date": "20 Mar 2026",
+  "sequence_end_date": "18 May 2026",
+  "model_trained_at": "18 May 2026",
   "lstm": {
     "prediction": "bullish",
     "probability": 0.7312,
@@ -290,6 +293,7 @@ Price_to_SMA20, Price_to_SMA50.
   "agreement": true,
   "recent_prices": [...],
   "recent_dates": [...],
+  "temporal_summary": "Pattern based on 60 trading days ending 18 May 2026 · Model trained 18 May 2026 · Live SageMaker endpoint",
   "disclaimer": "Pattern detection only. Not financial advice."
 }
 ```
@@ -425,6 +429,9 @@ Cost management is a first-class concern in production MLOps. An endpoint that b
 
 **Why this project is paired with stock-trend-lstm rather than replacing it**  
 The two projects together demonstrate something neither demonstrates alone: the ability to choose the right tool for the context. stock-trend-lstm shows I can build an end-to-end ML system quickly without managed infrastructure. stock-trend-sagemaker shows I can deploy the same system as a production MLOps pipeline. The pairing is the argument — it shows judgment about when to use each approach.
+
+**Why the UI shows the prediction date range and model training date**  
+The app downloads fresh market data on every request but the model is frozen at training time. The UI makes this explicit on every prediction: the date range of the 60-day input sequence and the date the model was trained are both displayed in the temporal summary footer. This distinction matters for financial applications where data recency and model staleness have direct implications for reliability. A model trained six months ago on a bull market may behave differently in a bear market — surfacing that information rather than hiding it is a deliberate transparency choice.
 
 ---
 

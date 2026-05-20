@@ -359,6 +359,9 @@
     <!-- Agreement -->
     <div class="agreement-banner" id="agreement-banner">—</div>
 
+    <!-- Temporal context -->
+    <div id="temporal-summary" style="font-size:11px; color:#6B7280; text-align:center; margin: 8px 0 12px 0; line-height:1.5;"></div>
+
     <!-- Price chart -->
     <div class="card" style="margin-top:14px;">
       <h2>Recent Price — <span id="chart-ticker">—</span> <span id="chart-date" style="font-size:0.8rem;color:var(--muted);font-weight:400;"></span></h2>
@@ -371,9 +374,9 @@
     <div class="card" style="margin-top:0;">
       <h2>Model Info</h2>
       <div class="model-footer" id="model-footer">
-        <div class="mf-item"><div class="mf-label">Served by</div><div class="mf-value">Amazon SageMaker Real-Time Endpoint</div></div>
-        <div class="mf-item"><div class="mf-label">Instance</div><div class="mf-value">ml.t2.medium</div></div>
-        <div class="mf-item"><div class="mf-label">Region</div><div class="mf-value">us-east-1</div></div>
+        <div class="mf-item"><div class="mf-label">Model trained</div><div class="mf-value" id="mf-trained">—</div></div>
+        <div class="mf-item"><div class="mf-label">ROC-AUC</div><div class="mf-value" id="mf-roc-auc">—</div></div>
+        <div class="mf-item"><div class="mf-label">Served by</div><div class="mf-value" id="mf-served-by">Amazon SageMaker Real-Time Endpoint</div></div>
         <div class="mf-item"><div class="mf-label">Architecture</div><div class="mf-value">Stacked LSTM</div></div>
         <div class="mf-item"><div class="mf-label">Disclaimer</div><div class="mf-value" style="color:var(--yellow);">Pattern detection only. Not financial advice.</div></div>
       </div>
@@ -510,6 +513,9 @@ function renderResults(d) {
     },
   });
 
+  // Temporal context summary
+  document.getElementById('temporal-summary').textContent = d.temporal_summary || '';
+
   document.getElementById('results-section').style.display = 'block';
 }
 
@@ -519,8 +525,33 @@ function showError(msg) {
   box.style.display = 'block';
 }
 
+// ── Model info footer on page load ────────────────────────────────────────
+async function loadModelInfo() {
+  try {
+    const res = await fetch('/api/model-info');
+    const d = await res.json();
+
+    const trainedEl  = document.getElementById('mf-trained');
+    const rocEl      = document.getElementById('mf-roc-auc');
+    const servedEl   = document.getElementById('mf-served-by');
+
+    if (trainedEl) trainedEl.textContent = d.model_trained_at_display || 'Unknown';
+    if (rocEl)     rocEl.textContent     = d.roc_auc ? d.roc_auc.toFixed(4) : '—';
+
+    if (servedEl) {
+      const isOffline = (d.served_by || '').toLowerCase().includes('offline') ||
+                        (d.served_by || '').toLowerCase().includes('local');
+      servedEl.textContent = d.served_by || 'Amazon SageMaker Real-Time Endpoint';
+      servedEl.style.color = isOffline ? '#D97706' : '';
+    }
+  } catch {
+    // API unavailable — leave defaults
+  }
+}
+
 // Load pipeline status immediately
 loadPipelineStatus();
+loadModelInfo();
 </script>
 </body>
 </html>

@@ -184,27 +184,45 @@ def predict():
     X_scaled = scaler.transform(X_raw)                         # same scaler fitted on train
     sequence = X_scaled[np.newaxis, :, :]                      # shape (1, 60, n_features)
 
-    # ── Call SageMaker endpoint ────────────────────────────────────────────────
-    try:
-        probability = _call_sagemaker_endpoint(sequence)
-    except Exception as e:
-        return jsonify({'error': f'SageMaker endpoint error: {str(e)}'}), 503
-
-    lstm_prediction = 'bullish' if probability >= 0.5 else 'bearish'
-    lstm_agreement = lstm_prediction == ma_signal.get('prediction', '')
-    inference_source = 'SageMaker Real-Time Endpoint'
-
     # ── Recent price window for chart ─────────────────────────────────────────
     recent = df.tail(30)
     recent_prices = [round(float(p), 2) for p in recent['Close'].values]
     recent_dates  = [str(d.date()) for d in recent.index]
+
+    # ── Call SageMaker endpoint ────────────────────────────────────────────────
+    endpoint_offline = False
+    try:
+        probability = _call_sagemaker_endpoint(sequence)
+    except Exception:
+        endpoint_offline = True
+        last_pred_path = MODEL_DIR / 'last_prediction.json'
+        if last_pred_path.exists():
+            with open(last_pred_path) as f:
+                last = json.load(f)
+            last['endpoint_offline'] = True
+            last['offline_notice'] = (
+                'The SageMaker endpoint has been shut down to avoid charges on a personal AWS account. '
+                'Results shown are from the last live run. Run deploy_endpoint.py to restore live inference.'
+            )
+            last['recent_prices'] = recent_prices
+            last['recent_dates'] = recent_dates
+            last['ma_crossover'] = ma_signal
+            return jsonify(last)
+        return jsonify({
+            'error': 'SageMaker endpoint is offline. It has been shut down to avoid charges on a personal AWS account.',
+            'offline_notice': 'Run deploy_endpoint.py to restore live inference.',
+        }), 503
+
+    lstm_prediction = 'bullish' if probability >= 0.5 else 'bearish'
+    lstm_agreement = lstm_prediction == ma_signal.get('prediction', '')
+    inference_source = 'SageMaker Real-Time Endpoint'
 
     temporal_summary = (
         f"Pattern based on {SEQUENCE_LENGTH} trading days ending {sequence_end_date} "
         f"· Model trained {trained_at_display} · Live SageMaker endpoint"
     )
 
-    return jsonify({
+    result = {
         'ticker': ticker,
         'as_of_date': as_of_date,
         'sequence_days': SEQUENCE_LENGTH,
@@ -223,7 +241,14 @@ def predict():
         'recent_dates': recent_dates,
         'temporal_summary': temporal_summary,
         'disclaimer': 'Pattern detection only. Not financial advice.',
-    })
+        'endpoint_offline': False,
+    }
+
+    # Save last successful prediction for offline fallback
+    with open(MODEL_DIR / 'last_prediction.json', 'w') as f:
+        json.dump(result, f, indent=2)
+
+    return jsonify(result)
 
 
 @app.route('/api/model-info')

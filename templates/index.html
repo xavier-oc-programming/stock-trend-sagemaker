@@ -356,6 +356,9 @@
       </div>
     </div>
 
+    <!-- Offline notice -->
+    <div id="offline-notice" style="display:none; background:#1e293b; border:1px solid #f59e0b; border-radius:6px; padding:10px 14px; margin-bottom:10px; font-size:12px; color:#f59e0b; line-height:1.6;"></div>
+
     <!-- Agreement -->
     <div class="agreement-banner" id="agreement-banner">—</div>
 
@@ -515,6 +518,15 @@ function renderResults(d) {
 
   // Temporal context summary
   document.getElementById('temporal-summary').textContent = d.temporal_summary || '';
+
+  // Offline notice
+  const offlineEl = document.getElementById('offline-notice');
+  if (d.endpoint_offline && d.offline_notice) {
+    offlineEl.textContent = d.offline_notice;
+    offlineEl.style.display = 'block';
+  } else {
+    offlineEl.style.display = 'none';
+  }
 
   document.getElementById('results-section').style.display = 'block';
 }

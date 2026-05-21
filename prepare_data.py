@@ -259,6 +259,7 @@ def main() -> None:
         (str(DATA_DIR / 'X_test.npy'),  f'{S3_PREFIX}/data/test/X_test.npy'),
         (str(DATA_DIR / 'y_test.npy'),  f'{S3_PREFIX}/data/test/y_test.npy'),
         (config_path,                    f'{S3_PREFIX}/data/sequence_config.json'),
+        (config_path,                    f'{S3_PREFIX}/data/train/sequence_config.json'),
     ]
     for local, key in uploads:
         upload_to_s3(local, key)

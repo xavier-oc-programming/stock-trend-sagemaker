@@ -557,6 +557,9 @@ This is a deliberate architectural choice, not a forced constraint. Accenture's 
 **Why LSTM over simpler models for this dataset**  
 A gradient boosting model (XGBoost, LightGBM) treats each day's features independently — it cannot learn that a pattern spanning multiple days is meaningfully different from its individual components. An LSTM's hidden state carries information across the full 60-day window, allowing it to detect multi-day patterns that a tabular model would miss entirely. The trade-off is training complexity and compute cost — justified here because the temporal structure of the data is the core signal.
 
+**Why the app serves cached results when the endpoint is offline**
+The trained model artefact is stored permanently in S3 and never deleted with the endpoint. When the endpoint is shut down, the app falls back to the last successful prediction saved in `models/last_prediction.json` and displays a clear notice explaining the endpoint was shut down to avoid charges on a personal AWS account. This keeps the portfolio site functional for visitors at all times — they see real model output with full transparency about its source — while avoiding the ~$0.065/hr cost of keeping the endpoint running indefinitely. The endpoint can be restored at any time by running `deploy_endpoint.py`, which redeploys from the existing S3 artefact without retraining.
+
 **Why there is no CI/CD pipeline**
 Automated deployment on every push would trigger SageMaker Training Jobs and keep the
 Real-Time Endpoint running continuously — both bill by usage on a personal AWS account.

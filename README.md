@@ -37,10 +37,11 @@ experiment. Both are documented here.
 |---|---|
 | AWS account | SageMaker access must be enabled in the account |
 | IAM role | `SageMakerExecutionRole` with `AmazonSageMakerFullAccess` + `AmazonS3FullAccess` |
-| S3 bucket | `xavier-sagemaker-stock-trend` in `us-east-1` (or update `S3_BUCKET` in config.py) |
+| S3 bucket | `xavier-sagemaker-stock-trend` in `eu-west-1` (or update `S3_BUCKET` in config.py) |
+| AWS CLI | `brew install awscli` — required for `aws configure` |
 | AWS credentials | `aws configure` — never hardcode credentials in code |
 | Azure account | For App Service frontend deployment |
-| Python 3.11+ | |
+| Python 3.12+ | |
 
 ---
 

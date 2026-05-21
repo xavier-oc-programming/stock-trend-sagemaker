@@ -24,10 +24,9 @@ TRAIN_SPLIT = 0.8
 RANDOM_STATE = 42
 
 # ── SageMaker training job ────────────────────────────────────────────────────
-# ml.m5.xlarge is cost-effective for TF training jobs.
-# ml.p2.xlarge (GPU) is faster but ~10x more expensive — not needed
-# for this sequence length and dataset size.
-TRAINING_INSTANCE = 'ml.m5.xlarge'
+# ml.m5.large: default quota is 1 on new accounts (xlarge default is 0).
+# Switch back to ml.m5.xlarge once the Service Quota increase is approved.
+TRAINING_INSTANCE = 'ml.m5.large'
 
 # ── SageMaker endpoint ────────────────────────────────────────────────────────
 # ml.t2.medium is the cheapest real-time endpoint instance.

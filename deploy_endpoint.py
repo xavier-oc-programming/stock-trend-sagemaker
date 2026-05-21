@@ -60,20 +60,34 @@ def main() -> None:
         sagemaker_session=sm_session,
     )
 
-    predictor = model.deploy(
-        initial_instance_count=1,
-        instance_type=ENDPOINT_INSTANCE,
-        endpoint_name=ENDPOINT_NAME,
-        wait=True,
-    )
+    sm_client = boto3.client('sagemaker', region_name=REGION)
+    try:
+        resp = sm_client.describe_endpoint(EndpointName=ENDPOINT_NAME)
+        if resp['EndpointStatus'] == 'InService':
+            print(f"\nEndpoint '{ENDPOINT_NAME}' already active — skipping deploy.")
+        else:
+            raise RuntimeError(f"Endpoint exists but status is {resp['EndpointStatus']}")
+    except sm_client.exceptions.ClientError:
+        model.deploy(
+            initial_instance_count=1,
+            instance_type=ENDPOINT_INSTANCE,
+            endpoint_name=ENDPOINT_NAME,
+            wait=True,
+        )
 
     print(f"\nEndpoint '{ENDPOINT_NAME}' is active.")
 
     # ── Smoke test ─────────────────────────────────────────────────────────────
     print("\nRunning endpoint smoke test...")
+    runtime = boto3.client('sagemaker-runtime', region_name=REGION)
     dummy_input = np.zeros((1, SEQUENCE_LENGTH, n_features)).tolist()
-    response = predictor.predict({'instances': dummy_input})
-    print(f"  Smoke test response: {response}")
+    resp = runtime.invoke_endpoint(
+        EndpointName=ENDPOINT_NAME,
+        ContentType='application/json',
+        Body=json.dumps({'instances': dummy_input}),
+    )
+    result = json.loads(resp['Body'].read())
+    print(f"  Smoke test response: {result}")
 
     # ── Save endpoint metadata ─────────────────────────────────────────────────
     deployed_at = datetime.utcnow().isoformat() + 'Z'

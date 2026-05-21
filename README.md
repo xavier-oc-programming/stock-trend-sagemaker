@@ -202,6 +202,15 @@ Deletes the endpoint and endpoint configuration. `ml.t2.medium` costs
 python delete_endpoint.py
 ```
 
+### Offline fallback
+
+The trained model artefact is never deleted from S3. When the endpoint is offline,
+`app.py` catches the connection error, loads `models/last_prediction.json` (saved
+automatically after every successful live inference), and returns those results to
+the browser with an amber notice explaining the endpoint is shut down to avoid charges
+on a personal AWS account. Visitors always see real model output — never a broken page.
+To restore live inference at any time: `python deploy_endpoint.py` (~10 min, no retraining).
+
 ---
 
 ## 5. Model Architecture

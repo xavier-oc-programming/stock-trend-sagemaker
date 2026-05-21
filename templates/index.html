@@ -201,7 +201,7 @@
       align-items: center;
       gap: 6px;
     }
-    .inference-source::before { content: "⚡"; }
+    .inference-source::before { content: ""; }
 
     /* ── Chart ───────────────────────────────────────────────────────────── */
     .chart-wrap { position: relative; height: 220px; margin-top: 12px; }
@@ -334,7 +334,7 @@
           <span class="stat-label">Sequence length</span>
           <span class="stat-value" id="lstm-seq">60 days</span>
         </div>
-        <div class="inference-source" id="inference-source">Amazon SageMaker Real-Time Endpoint (ml.t2.medium, us-east-1)</div>
+        <div class="inference-source" id="inference-source">Amazon SageMaker Real-Time Endpoint (ml.t2.medium, eu-west-1)</div>
       </div>
 
       <!-- MA crossover -->
@@ -460,7 +460,7 @@ function renderResults(d) {
   document.getElementById('lstm-conf').textContent = d.lstm.confidence;
   document.getElementById('lstm-seq').textContent = d.sequence_days + ' days';
   document.getElementById('inference-source').textContent =
-    '⚡ Inference served by: ' + d.lstm.served_by + ' (ml.t2.medium, us-east-1)';
+    'Inference served by: ' + d.lstm.served_by + ' (ml.t2.medium, eu-west-1)';
 
   // MA crossover
   const maBadge = document.getElementById('ma-badge');
@@ -476,7 +476,7 @@ function renderResults(d) {
     banner.textContent = '✓ Both signals agree: ' + d.lstm.prediction.toUpperCase();
     banner.className = 'agreement-banner agree';
   } else {
-    banner.textContent = '⚡ Signals diverge — LSTM: ' + d.lstm.prediction.toUpperCase() + ' · MA: ' + d.ma_crossover.prediction.toUpperCase();
+    banner.textContent = 'Signals diverge — LSTM: ' + d.lstm.prediction.toUpperCase() + ' · MA: ' + d.ma_crossover.prediction.toUpperCase();
     banner.className = 'agreement-banner disagree';
   }
 

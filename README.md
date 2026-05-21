@@ -17,7 +17,7 @@ experiment. Both are documented here.
 > Pattern detection only — not financial advice. Past patterns do not
 > guarantee future results.
 
-**Live demo → [Azure App Service](https://stock-trend-sagemaker.azurewebsites.net)**
+**Live demo → [stock-trend-sagemaker.azurewebsites.net](https://stock-trend-sagemaker.azurewebsites.net)**
 &nbsp;&nbsp;·&nbsp;&nbsp;
 **Notebook → notebook.ipynb**
 

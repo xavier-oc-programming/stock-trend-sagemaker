@@ -9,7 +9,7 @@ repo_url: https://github.com/xavier-oc-programming/stock-trend-sagemaker
 live_url: https://stock-trend-sagemaker.azurewebsites.net
 demo_url: https://stock-trend-sagemaker.azurewebsites.net
 short_description: |
-  LSTM stock trend classifier rebuilt as a production MLOps pipeline. SageMaker Training Job, Model Registry, and Real-Time Endpoint. Flask frontend on Azure App Service calls the SageMaker endpoint — multi-cloud architecture mirroring enterprise deployments. Pattern detection only — not financial advice.
+  Stacked LSTM for stock trend pattern detection, served via Amazon SageMaker Real-Time Endpoint. Flask frontend on Azure App Service — multi-cloud MLOps. Pattern detection only, not financial advice.
 full_description: |
   A production MLOps pipeline built on Amazon SageMaker for stock trend pattern detection. The model architecture — a stacked LSTM trained on 60-day sequences of 25 technical indicators across AAPL, MSFT, and GOOGL — classifies whether the next 5 trading days are likely to trend up or down.
   Training runs as a managed SageMaker Training Job on ml.m5.large, with hyperparameters passed via argparse and the model saved in TensorFlow SavedModel format to S3. The trained model is registered in SageMaker Model Registry with full versioning and approval status tracking — the production equivalent of the manual model_registry.csv pattern used in telco-churn-predictor. Inference is served via a SageMaker Real-Time Endpoint, eliminating cold starts and enabling sub-100ms latency.

@@ -3,7 +3,7 @@
 # - IAM role with AmazonSageMakerFullAccess and AmazonS3FullAccess
 # - S3 bucket created: xavier-sagemaker-stock-trend (or update S3_BUCKET constant)
 # - AWS credentials configured: aws configure
-# - Region: us-east-1
+# - Region: eu-west-1
 # SageMaker free tier: 250 hours of t2.medium for training (first 2 months)
 # Real-time endpoint: ml.t2.medium ~$0.065/hour — DELETE after demo to avoid charges
 # Run delete_endpoint.py after recording the live URL for the portfolio
@@ -13,7 +13,7 @@ from pathlib import Path
 # ── S3 / AWS ──────────────────────────────────────────────────────────────────
 S3_BUCKET = 'xavier-sagemaker-stock-trend'
 S3_PREFIX = 'stock-trend'
-REGION = 'us-east-1'
+REGION = 'eu-west-1'
 ROLE_NAME = 'SageMakerExecutionRole'  # IAM role name — update if different
 
 # ── Data constants — identical to stock-trend-lstm ────────────────────────────
@@ -45,5 +45,5 @@ PLOTS_DIR = Path('plots')
 DATA_DIR = Path('data')
 
 # ── Amazon Bedrock ────────────────────────────────────────────────────────────
-BEDROCK_MODEL_ID = 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
-BEDROCK_REGION = 'us-east-1'
+BEDROCK_MODEL_ID = 'eu.anthropic.claude-haiku-4-5-20251001-v1:0'
+BEDROCK_REGION = 'eu-west-1'

@@ -557,6 +557,14 @@ This is a deliberate architectural choice, not a forced constraint. Accenture's 
 **Why LSTM over simpler models for this dataset**  
 A gradient boosting model (XGBoost, LightGBM) treats each day's features independently — it cannot learn that a pattern spanning multiple days is meaningfully different from its individual components. An LSTM's hidden state carries information across the full 60-day window, allowing it to detect multi-day patterns that a tabular model would miss entirely. The trade-off is training complexity and compute cost — justified here because the temporal structure of the data is the core signal.
 
+**Why there is no CI/CD pipeline**
+Automated deployment on every push would trigger SageMaker Training Jobs and keep the
+Real-Time Endpoint running continuously — both bill by usage on a personal AWS account.
+CI/CD is intentionally omitted here in favour of manual, script-driven deployment so
+that each pipeline run is a deliberate decision with a known cost. In a team environment
+with a shared account and budget controls, the same scripts would be the natural input
+to a GitHub Actions or CodePipeline workflow.
+
 **Why delete_endpoint.py is a first-class file**  
 Cost management is a first-class concern in production MLOps. An endpoint that bills by the hour and is left running after a demo is a real operational failure. Treating deletion as an afterthought — a one-liner in a notebook or README — understates its importance. A named, documented script makes the delete operation explicit, auditable, and easy to find.
 

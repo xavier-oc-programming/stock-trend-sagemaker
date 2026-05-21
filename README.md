@@ -21,8 +21,8 @@ experiment. Both are documented here.
 &nbsp;&nbsp;·&nbsp;&nbsp;
 **Notebook → notebook.ipynb**
 
-![Python 3.11](https://img.shields.io/badge/Python-3.11-blue)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15-orange)
+![Python 3.12](https://img.shields.io/badge/Python-3.12-blue)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16-orange)
 ![SageMaker](https://img.shields.io/badge/Amazon-SageMaker-FF9900)
 ![S3](https://img.shields.io/badge/Amazon-S3-FF9900)
 ![Bedrock](https://img.shields.io/badge/Amazon-Bedrock-FF9900)
@@ -56,7 +56,7 @@ pip install -r requirements.txt
 # 2. Download data, generate features, upload to S3
 python prepare_data.py
 
-# 3. Launch SageMaker Training Job (~15 min on ml.m5.xlarge)
+# 3. Launch SageMaker Training Job (~5 min on ml.m5.large)
 python run_training_job.py
 
 # 4. Register trained model in Model Registry
@@ -171,7 +171,7 @@ everything to S3. Generates EDA plots 01–04 and saves to `plots/`.
 ### run_training_job.py
 
 Creates a SageMaker `TensorFlow` estimator pointing at `training/train_sagemaker.py`
-and launches a managed training job on `ml.m5.xlarge`. `wait=True` streams
+and launches a managed training job on `ml.m5.large`. `wait=True` streams
 CloudWatch logs to stdout. Saves job name and model artefact S3 URI to
 `models/training_job_metadata.json` for downstream scripts.
 
@@ -289,21 +289,93 @@ performance that does not reflect real-world use.
 
 ## 6. Results
 
-*TBD — populate after running the full pipeline.*
+Trained on AAPL + MSFT + GOOGL, 5 years of daily data. Temporal 80/20 split.
+Early stopping at epoch 15 (best weights from epoch 5, monitored on val_auc).
 
 | Metric | Value |
 |---|---|
-| Accuracy | TBD |
-| Precision | TBD |
-| Recall | TBD |
-| F1 Score | TBD |
-| ROC-AUC | TBD |
-| Training duration | TBD |
+| Accuracy | 54.4% |
+| Precision | 66.3% |
+| Recall | 45.1% |
+| F1 Score | 53.7% |
+| ROC-AUC | 0.574 |
+| Epochs trained | 15 (early stop) |
+| Training duration | ~5 min on ml.m5.large |
 | Endpoint latency | ~100ms |
+
+A ROC-AUC of 0.574 means the model ranks a randomly selected bullish day above a
+randomly selected bearish day 57.4% of the time — meaningfully above random (0.5)
+but well below the overfit territory that would indicate data leakage. This is the
+expected range for a genuine price-pattern model on a small dataset. The precision
+of 66.3% means that when the model predicts bullish, it is correct two-thirds of
+the time — usable as a weak signal when combined with other indicators.
 
 ---
 
-## 7. Visualisations
+## 7. Endpoint Contents — What the UI Shows
+
+When you enter a ticker and click Analyse, the app downloads the latest price data,
+feeds it to the SageMaker endpoint, and displays two independent signals side by side.
+
+### MLOps Pipeline Status
+
+Four steps shown as green checkmarks: Data → Training Job → Model Registry → Endpoint.
+These are live checks — the app calls `/api/pipeline-status` on load and confirms
+each artefact is actually present (S3 data, training metadata, model package ARN,
+and endpoint in InService state).
+
+### LSTM — SageMaker Endpoint (left panel)
+
+This is the neural network speaking. It looked at the last 60 trading days of price
+and 25 technical indicators, and outputs a single number between 0 and 1:
+
+- **Above 0.5** → the model predicts the price is more likely to be higher in 5 days → **Bullish**
+- **Below 0.5** → the model predicts the price is more likely to be lower in 5 days → **Bearish**
+- The **probability** shown is the raw output — 38% means 38% chance of going up, 62% chance of going down
+- **Confidence** is derived from distance from 0.5: high (≥70% or ≤30%), medium (≥60% or ≤40%), low (everything in between)
+- The inference is served by a live AWS SageMaker Real-Time Endpoint in eu-west-1 — not a local calculation
+
+### MA Crossover Signal (right panel)
+
+This is a classic technical analysis rule — no machine learning involved. It compares
+two moving averages of the closing price:
+
+- **SMA 20** — the average closing price over the last 20 trading days (roughly one month)
+- **SMA 50** — the average closing price over the last 50 trading days (roughly two months)
+
+When the short-term average is above the long-term average, recent prices are trending
+higher than the longer-term trend — traders call this a **golden cross** and read it as
+**bullish**. When the short-term average is below the long-term average, recent prices
+are weakening relative to the longer trend — called a **death cross**, read as **bearish**.
+
+This signal is calculated locally in the Flask app from the same price data, with no
+AWS call required.
+
+### Agreement / Divergence Banner
+
+Shows whether both signals agree or disagree. Divergence is informative — it means the
+neural network detected something in the 60-day pattern that the simple moving average
+rule does not capture. Agreement adds confidence that both short-term momentum and
+learned pattern structure point the same way.
+
+### Temporal Summary
+
+Shows the exact date range of the 60-day input window used for the current prediction,
+and the date the model was trained. These are surfaced deliberately: the model is frozen
+at training time while market data changes daily. A model trained six months ago in a
+bull market may behave differently in a bear market — displaying this information rather
+than hiding it is a transparency choice.
+
+### Model Info Footer
+
+- **Model trained** — the date of the SageMaker Training Job that produced this model
+- **ROC-AUC** — how well the model ranks bullish days above bearish days (0.5 = random, 1.0 = perfect)
+- **Served by** — confirms inference is coming from the live SageMaker endpoint, not local code
+- **Architecture** — Stacked LSTM: two LSTM layers where the output of the first feeds the second
+
+---
+
+## 8. Visualisations
 
 *Generated by `prepare_data.py` and `bedrock_comparator.py` — available in `plots/` after running.*
 
@@ -321,7 +393,7 @@ performance that does not reflect real-world use.
 
 ---
 
-## 8. API Reference
+## 9. API Reference
 
 ### POST /predict
 
@@ -376,7 +448,7 @@ Includes `"served_by": "Amazon SageMaker Real-Time Endpoint"`.
 
 ---
 
-## 9. Deployment
+## 10. Deployment
 
 ### 9a. SageMaker Pipeline
 
@@ -436,7 +508,7 @@ az webapp deployment source config-zip \
 
 ---
 
-## 10. Limitations
+## 11. Limitations
 
 - **Pattern detection only — not financial advice.** Past patterns do not guarantee future results.
 - The model detects historical patterns in price and indicator data. It does not model earnings surprises, geopolitical events, or macroeconomic regime changes.
@@ -447,13 +519,13 @@ az webapp deployment source config-zip \
 
 ---
 
-## 11. Cost Summary
+## 12. Cost Summary
 
 Approximate AWS cost for this project:
 
 | Item | Cost |
 |---|---|
-| SageMaker Training Job (ml.m5.xlarge, ~15 min) | ~$0.30 |
+| SageMaker Training Job (ml.m5.large, ~5 min) | ~$0.05 |
 | S3 storage (model artefacts + data, <500 MB) | <$0.01 |
 | SageMaker Endpoint (ml.t2.medium, per hour) | ~$0.065/hr |
 | Bedrock API calls (~30 calls, Haiku pricing) | ~$0.01 |
@@ -466,7 +538,7 @@ python delete_endpoint.py
 
 ---
 
-## 12. Design Decisions
+## 13. Design Decisions
 
 **Why SageMaker over a local training script**  
 A local training script is tightly coupled to the machine it runs on: Python version, GPU availability, and available memory all affect reproducibility. SageMaker Training Jobs are containerised and reproducible by definition — the same job definition always produces the same artefact from the same data. Every run is logged, timestamped, and recoverable. For a portfolio project this distinction is academic; for a production system it is fundamental.
@@ -494,7 +566,7 @@ The app downloads fresh market data on every request but the model is frozen at 
 
 ---
 
-## 13. SageMaker vs Manual MLOps
+## 14. SageMaker vs Manual MLOps
 
 | Concern | telco-churn-predictor | stock-trend-sagemaker |
 |---|---|---|
@@ -511,14 +583,14 @@ The manual pattern (telco-churn-predictor) is appropriate for a portfolio projec
 
 ---
 
-## 14. Dependencies
+## 15. Dependencies
 
 | Package | Version | Purpose |
 |---|---|---|
 | pandas | >=2.0 | Data manipulation |
 | numpy | >=1.24 | Numerical arrays |
 | scikit-learn | >=1.3 | Preprocessing, evaluation metrics |
-| tensorflow | >=2.15 | LSTM model (training + inference) |
+| tensorflow | >=2.16 | LSTM model (training + inference) |
 | sagemaker | >=2.200 | SageMaker SDK — estimator, deployment |
 | boto3 | >=1.34 | AWS API — S3 upload, endpoint invocation |
 | yfinance | >=0.2 | Stock data download |
@@ -530,7 +602,7 @@ The manual pattern (telco-churn-predictor) is appropriate for a portfolio projec
 
 ---
 
-## 15. Bedrock Across Four Projects
+## 16. Bedrock Across Four Projects
 
 This is the fourth project in a cross-task benchmark comparing Amazon Bedrock
 (Claude Haiku, zero-shot) against trained models:

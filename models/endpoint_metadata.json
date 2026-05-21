@@ -4,5 +4,6 @@
   "instance_type": "ml.t2.medium",
   "deployed_at": "2026-05-21T15:47:23.840786Z",
   "model_package_arn": "arn:aws:sagemaker:eu-west-1:638111422565:model-package/stock-trend-models/1",
-  "n_features": 25
+  "n_features": 25,
+  "deleted_at": "2026-05-21T16:52:45.069175Z"
 }

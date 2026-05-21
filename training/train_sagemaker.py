@@ -144,7 +144,7 @@ for k, v in metrics.items():
 # in SavedModel format. The '1' is the version number used by TF Serving.
 saved_model_path = os.path.join(SM_MODEL_DIR, '1')
 print(f"\nSaving model to {saved_model_path}")
-model.save(saved_model_path)
+model.export(saved_model_path)
 print("Model saved.")
 
 # ── Save metrics ──────────────────────────────────────────────────────────────

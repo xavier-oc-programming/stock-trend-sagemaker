@@ -60,7 +60,7 @@ def main() -> None:
     inference_image = sagemaker.image_uris.retrieve(
         'tensorflow',
         REGION,
-        version='2.15',
+        version='2.16',
         image_scope='inference',
         instance_type=ENDPOINT_INSTANCE,
     )

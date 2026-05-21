@@ -51,8 +51,8 @@ def main() -> None:
         role=role_arn,
         instance_count=1,
         instance_type=TRAINING_INSTANCE,
-        framework_version='2.15',
-        py_version='py311',
+        framework_version='2.16',
+        py_version='py310',
         hyperparameters={
             'epochs': 50,
             'batch-size': 32,

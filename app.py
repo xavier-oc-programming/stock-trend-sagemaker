@@ -141,6 +141,8 @@ def predict():
     # ── Download fresh data ────────────────────────────────────────────────────
     try:
         df = yf.download(ticker, period=period, auto_adjust=True, progress=False)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
         if df.empty or len(df) < SEQUENCE_LENGTH + 60:
             return jsonify({'error': f'Insufficient data for {ticker}'}), 400
     except Exception as e:

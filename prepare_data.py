@@ -51,6 +51,9 @@ s3_client = boto3.client('s3', region_name=REGION)
 def download_ticker_data(ticker: str, period: str = '5y') -> pd.DataFrame:
     print(f"  Downloading {ticker} ({period})...")
     df = yf.download(ticker, period=period, auto_adjust=True, progress=False)
+    # yfinance 1.x returns MultiIndex columns even for single tickers — flatten to simple names
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
     df['Ticker'] = ticker
     return df
 

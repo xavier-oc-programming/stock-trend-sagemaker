@@ -469,19 +469,21 @@ AWS credentials are stored as App Service Application Settings — never in code
 ```bash
 az group create \
   --name stock-trend-sm-rg \
-  --location westeurope
+  --location centralus
 
+# Note: Azure allows one Linux F1 plan per region per subscription.
+# Central US is used here because West Europe already hosts telco-churn-predictor.
 az appservice plan create \
   --name stock-trend-sm-plan \
   --resource-group stock-trend-sm-rg \
-  --sku B1 --is-linux
-# Scale to F1 via portal after creation
+  --sku F1 --is-linux \
+  --location centralus
 
 az webapp create \
   --name stock-trend-sagemaker \
   --resource-group stock-trend-sm-rg \
   --plan stock-trend-sm-plan \
-  --runtime "PYTHON:3.11"
+  --runtime "PYTHON:3.12"
 
 az webapp config set \
   --name stock-trend-sagemaker \
@@ -495,7 +497,7 @@ az webapp config appsettings set \
     SCM_DO_BUILD_DURING_DEPLOYMENT=true \
     AWS_ACCESS_KEY_ID=<your-key> \
     AWS_SECRET_ACCESS_KEY=<your-secret> \
-    AWS_DEFAULT_REGION=us-east-1
+    AWS_DEFAULT_REGION=eu-west-1
 
 cd stock-trend-sagemaker && zip -r deploy.zip . \
   -x "*.git*" -x "venv/*" -x "__pycache__/*" -x "*.ipynb_checkpoints*"

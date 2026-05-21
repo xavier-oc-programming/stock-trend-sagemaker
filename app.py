@@ -258,8 +258,6 @@ def model_info():
 
 @app.route('/api/pipeline-status')
 def pipeline_status():
-    from pathlib import Path as _Path
-
     # Training job metadata
     tj_meta = None
     tj_path = MODEL_DIR / 'training_job_metadata.json'
@@ -283,7 +281,7 @@ def pipeline_status():
         pass
 
     return jsonify({
-        'data_prepared': (_Path('data') / 'X_train.npy').exists(),
+        'data_prepared': (MODEL_DIR / 'sequence_config.json').exists(),
         'training_job': tj_meta,
         'model_registered': (MODEL_DIR / 'model_package_arn.txt').exists(),
         'endpoint_active': endpoint_active,

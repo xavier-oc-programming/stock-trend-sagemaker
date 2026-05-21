@@ -3,7 +3,7 @@ slug: stock-trend-sagemaker
 category: data
 date: 2026-05-21
 featured: true
-tags: deep-learning, time-series, neural-network, LLM, benchmarking, AWS, azure, deployment, flask, web-app, zero-shot, finance, model-registry, jupyter
+tags: MLOps, deep-learning, time-series, neural-network, LLM, benchmarking, AWS, azure, deployment, flask, web-app, zero-shot, finance, model-registry, jupyter
 tech_stack: Python, TensorFlow, Keras, LSTM, Amazon SageMaker, Amazon S3, scikit-learn, yfinance, Pandas, NumPy, Matplotlib, Seaborn, Amazon Bedrock, boto3, Flask, Gunicorn, Azure App Service
 repo_url: https://github.com/xavier-oc-programming/stock-trend-sagemaker
 live_url: https://stock-trend-sagemaker.azurewebsites.net

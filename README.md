@@ -653,8 +653,10 @@ benchmark, but which is more appropriate for the deployment context.
 | Sequences evaluated | 662 (full test set) | 30 (zero-shot sample) |
 | Input window | 60 days, 25 features | 5 days, 4 indicators |
 
-The LSTM outperforms Bedrock on every metric despite the information asymmetry working in Bedrock's
-favour — both models receive the same market regime, but the LSTM sees 12× more history.
-Bedrock's ROC-AUC of 0.517 is barely above random (0.5), confirming that 5-day snapshots
-carry insufficient signal for zero-shot classification. The LSTM's ROC-AUC of 0.574 reflects
-the additional signal contained in the full 60-day temporal pattern.
+Three conclusions from the results:
+
+**Bedrock defaulted to bearish on almost every sequence.** Out of 30 predictions, 26 were "down". This is not analysis — it is a directional bias. A model that predicts the same direction regardless of input is not detecting patterns; it is guessing. The 5-day snapshot provides too little context for a general-purpose LLM to reason meaningfully about price direction.
+
+**The LSTM actually learned something.** 54.4% accuracy and a ROC-AUC of 0.574 do not look impressive in isolation, but in financial time series even a small edge above random (0.5) reflects genuine signal extraction. The LSTM saw 60 days of 25 features and learned which temporal patterns precede uptrends — something a zero-shot prompt cannot replicate.
+
+**This is the point of the benchmark.** It was never meant to show that AI is bad at stocks. It illustrates a real architectural choice: a trained model that learned from data versus a general model reasoning from a short prompt. The LSTM wins because it was purpose-built for this task. Bedrock's ROC-AUC of 0.517 confirms that no amount of general intelligence compensates for insufficient input and no task-specific training.

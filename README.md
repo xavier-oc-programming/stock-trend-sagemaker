@@ -526,7 +526,7 @@ az webapp deployment source config-zip \
 - Trained on AAPL, MSFT, GOOGL only. Results on other tickers may differ significantly.
 - 5-day prediction horizon — intraday and multi-week behaviour is not modelled.
 - The Bedrock comparator uses only 5 days of indicators vs the LSTM's 60-day window.
-- The SageMaker endpoint must be running for `/predict` to work. If the endpoint has been deleted to manage costs, the app returns 503.
+- The SageMaker endpoint must be running for live inference. If the endpoint has been deleted to manage costs, the app falls back to the last cached prediction in `models/last_prediction.json` and displays a clear amber notice. To restore live inference: `python deploy_endpoint.py` (~10 min, no retraining).
 
 ---
 
@@ -610,16 +610,17 @@ The manual pattern (telco-churn-predictor) is appropriate for a portfolio projec
 | Package | Version | Purpose |
 |---|---|---|
 | pandas | >=2.0 | Data manipulation |
-| numpy | >=1.24 | Numerical arrays |
+| numpy | >=1.24,<2.0 | Numerical arrays |
 | scikit-learn | >=1.3 | Preprocessing, evaluation metrics |
 | tensorflow | >=2.16 | LSTM model (training + inference) |
-| sagemaker | >=2.200 | SageMaker SDK — estimator, deployment |
+| sagemaker | >=2.200,<3.0 | SageMaker SDK — estimator, deployment |
 | boto3 | >=1.34 | AWS API — S3 upload, endpoint invocation |
 | yfinance | >=0.2 | Stock data download |
 | flask | >=3.0 | Web frontend |
 | gunicorn | >=21.0 | WSGI server for Azure App Service |
 | matplotlib | >=3.7 | Plot generation |
 | seaborn | >=0.12 | Correlation heatmap |
+| shap | >=0.44,<0.50 | Feature importance (Bedrock comparator) |
 | jupyter | >=1.0 | Notebook walkthrough |
 
 ---
@@ -632,7 +633,7 @@ This is the fourth project in a cross-task benchmark comparing Amazon Bedrock
 | Project | Task | Trained model | Bedrock comparison |
 |---|---|---|---|
 | telco-churn-predictor | Tabular classification | XGBoost | Claude Haiku, zero-shot |
-| spam-classifier | Short text classification | Fine-tuned BERT | Claude Haiku, zero-shot |
+| spam-classifier | Short text classification | ComplementNB / LinearSVC | Claude Haiku, zero-shot |
 | imdb-sentiment-classifier | Long text classification | LSTM | Claude Haiku, zero-shot |
 | stock-trend-sagemaker | Time series classification | SageMaker LSTM | Claude Haiku, zero-shot |
 
@@ -644,4 +645,16 @@ training, and managed infrastructure; Bedrock requires only an API call and a
 well-formed prompt. The relevant question is not which is more accurate on this
 benchmark, but which is more appropriate for the deployment context.
 
-*Results: TBD — populate after running bedrock_comparator.py.*
+| Metric | SageMaker LSTM | Bedrock Claude Haiku |
+|---|---|---|
+| Accuracy | 54.4% | 46.7% |
+| F1 Score | 0.537 | 0.385 |
+| ROC-AUC | 0.574 | 0.517 |
+| Sequences evaluated | 662 (full test set) | 30 (zero-shot sample) |
+| Input window | 60 days, 25 features | 5 days, 4 indicators |
+
+The LSTM outperforms Bedrock on every metric despite the information asymmetry working in Bedrock's
+favour — both models receive the same market regime, but the LSTM sees 12× more history.
+Bedrock's ROC-AUC of 0.517 is barely above random (0.5), confirming that 5-day snapshots
+carry insufficient signal for zero-shot classification. The LSTM's ROC-AUC of 0.574 reflects
+the additional signal contained in the full 60-day temporal pattern.
